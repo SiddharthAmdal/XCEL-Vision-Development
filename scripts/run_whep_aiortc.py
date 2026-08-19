@@ -27,7 +27,7 @@ async def run_whep():
             logger.error("Could not find TS RING 02")
             return
             
-        logger.info(f"Target device found: {target.id}")
+        logger.info(f"Target device found: {target.camera_id}")
         
         config = RTCConfiguration(
             iceServers=[RTCIceServer(urls=["stun:stun.l.google.com:19302"])]
@@ -59,7 +59,7 @@ async def run_whep():
         logger.info(f"Sending WHEP request...")
         
         response = await provider.client.post(
-            f"/v1/devices/{target.id}/media/streaming/whep/sessions",
+            f"/v1/devices/{target.camera_id}/media/streaming/whep/sessions",
             content=sdp_offer,
             headers={"Content-Type": "application/sdp"}
         )
@@ -80,7 +80,7 @@ async def run_whep():
             
             session_url = response.headers.get('Location')
             logger.info(f"Stopping WHEP session {session_url}...")
-            stop_res = await provider.stop_live_stream(session_url)
+            stop_res = await provider.stop_live_stream(target.camera_id, session_url)
             logger.info(f"Stop result: {stop_res}")
         else:
             logger.error(f"Error Body: {response.text}")

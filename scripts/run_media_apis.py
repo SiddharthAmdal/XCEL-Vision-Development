@@ -30,8 +30,8 @@ async def run_media_tests():
             logger.error("Could not find TS RING 01")
             return
             
-        logger.info(f"--- Phase 2: Testing Event History for {target.id} ---")
-        history_res = await provider.get_event_history(target.id)
+        logger.info(f"--- Phase 2: Testing Event History for {target.camera_id} ---")
+        history_res = await provider.get_event_history(target.camera_id)
         
         if history_res.get("status") == "success":
             events = history_res.get("events", [])
@@ -44,7 +44,7 @@ async def run_media_tests():
                 timestamp_ms = event.get('attributes', {}).get('start')
                 
                 logger.info(f"--- Phase 3: Testing Image Download at {timestamp_ms} ---")
-                img_res = await provider.download_image(target.id, timestamp=timestamp_ms)
+                img_res = await provider.download_image(target.camera_id, timestamp=timestamp_ms)
                 if img_res.get("status") == "success":
                     download_url = img_res["download_url"]
                     logger.info(f"Got Image 303 Redirect: {download_url[:60]}...")
@@ -59,7 +59,7 @@ async def run_media_tests():
                     logger.warning(f"Image Download Failed: {img_res}")
                     
                 logger.info(f"--- Phase 4: Testing Video Download at {timestamp_ms} ---")
-                vid_res = await provider.download_video(target.id, timestamp=timestamp_ms)
+                vid_res = await provider.download_video(target.camera_id, timestamp=timestamp_ms)
                 if vid_res.get("status") == "success":
                     download_url = vid_res["download_url"]
                     logger.info(f"Got Video 303 Redirect: {download_url[:60]}...")
@@ -79,7 +79,7 @@ async def run_media_tests():
                 timestamp_ms = int(time.time() * 1000) - 300000
                 
                 logger.info(f"Attempting image download fallback at {timestamp_ms}")
-                img_res = await provider.download_image(target.id, timestamp=timestamp_ms)
+                img_res = await provider.download_image(target.camera_id, timestamp=timestamp_ms)
                 logger.info(f"Fallback Image response: {img_res}")
                 
         else:

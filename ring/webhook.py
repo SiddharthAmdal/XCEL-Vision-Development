@@ -3,7 +3,7 @@ import hashlib
 from fastapi import Request, HTTPException
 import logging
 from config import settings
-from .models import XcelEvent
+from camera.models import CameraEvent
 import uuid
 from datetime import datetime
 from sqlalchemy.orm import Session
@@ -32,7 +32,7 @@ def verify_ring_webhook_signature(raw_body: bytes, signature_header: str) -> boo
     # Use hmac.compare_digest for constant-time comparison to prevent timing attacks
     return hmac.compare_digest(calculated_hmac, signature_header)
 
-async def process_webhook(request: Request, db: Session) -> XcelEvent:
+async def process_webhook(request: Request, db: Session) -> CameraEvent:
     """
     Reads the raw request, verifies the signature, performs atomic idempotency check, and normalizes the event.
     """
@@ -95,8 +95,9 @@ async def process_webhook(request: Request, db: Session) -> XcelEvent:
     event_timestamp_ms = ring_attributes.get("timestamp")
     timestamp = datetime.fromtimestamp(event_timestamp_ms / 1000.0) if event_timestamp_ms else datetime.utcnow()
     
-    normalized_event = XcelEvent(
+    normalized_event = CameraEvent(
         event_id=ring_data.get("id", str(uuid.uuid4())),
+        provider="ring",
         camera_id=camera_id,
         event_type=xcel_event_type,
         timestamp=timestamp,
