@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 import database
 from ring import router as ring_router
 from api.routers import cameras as cameras_router
+from api.routers import analytics as analytics_router
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 
@@ -31,6 +32,7 @@ app.add_middleware(
 
 app.include_router(ring_router.router)
 app.include_router(cameras_router.router)
+app.include_router(analytics_router.router)
 
 @app.get("/")
 def read_root():

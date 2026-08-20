@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { PeopleCount } from './PeopleCount';
 import type { AIStatus } from './PeopleCount';
+import { AnalyticsDisplay } from './AnalyticsDisplay';
+import type { AnalyticsData } from './AnalyticsDisplay';
 
 const API_BASE_URL = 'http://localhost:8000/api/v1';
 
@@ -21,6 +23,7 @@ export const LiveStream: React.FC<LiveStreamProps> = ({ cameraId, onClose }) => 
   const [peopleCount, setPeopleCount] = useState<number | null>(null);
   const [facesCount, setFacesCount] = useState<number | null>(null);
   const [expressionSummary, setExpressionSummary] = useState<Record<string, number> | null>(null);
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   
   const aiSessionIdRef = useRef<string>(Math.random().toString(36).substring(2, 15));
   const aiLoopActiveRef = useRef<boolean>(false);
@@ -164,6 +167,31 @@ export const LiveStream: React.FC<LiveStreamProps> = ({ cameraId, onClose }) => 
                 setExpressionSummary(expSummary);
                 
                 setAiStatus('live');
+                
+                // Fetch analytics metrics
+                try {
+                  const occRes = await fetch(`${API_BASE_URL}/analytics/occupancy?camera_id=${cameraId}&session_id=${aiSessionIdRef.current}`, {
+                    headers: { 'Authorization': 'Bearer dev_token' }
+                  });
+                  const dwellRes = await fetch(`${API_BASE_URL}/analytics/dwell?camera_id=${cameraId}&session_id=${aiSessionIdRef.current}`, {
+                    headers: { 'Authorization': 'Bearer dev_token' }
+                  });
+                  
+                  if (occRes.ok && dwellRes.ok) {
+                    const occData = await occRes.json();
+                    const dwellData = await dwellRes.json();
+                    setAnalyticsData({
+                      visible_people: occData.visible_people,
+                      initial_occupancy: occData.initial_occupancy,
+                      total_entries: occData.total_entries,
+                      total_exits: occData.total_exits,
+                      estimated_occupancy: occData.estimated_occupancy,
+                      average_dwell_time_seconds: dwellData.average_dwell_time_seconds
+                    });
+                  }
+                } catch (e) {
+                  console.error("Error fetching analytics", e);
+                }
               } else {
                 console.error("AI inference error:", res.status);
                 setAiStatus('unavailable');
@@ -237,6 +265,12 @@ export const LiveStream: React.FC<LiveStreamProps> = ({ cameraId, onClose }) => 
               facesCount={facesCount}
               expressions={expressionSummary}
             />
+          </div>
+        )}
+
+        {status.includes('Live Stream Connected') && (
+          <div style={{ position: 'absolute', top: '20px', right: '20px', zIndex: 10 }}>
+            <AnalyticsDisplay data={analyticsData} />
           </div>
         )}
 

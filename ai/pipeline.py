@@ -10,6 +10,7 @@ from ai.face.yunet import YuNetFaceDetector
 from ai.face.opencv_quality import OpenCVFaceQualityAnalyzer
 from ai.face.association import PersonFaceAssociator
 from ai.face.ferplus_expression import FERPlusExpressionAnalyzer
+from ai.analytics.engine import SessionAnalyticsEngine
 import logging
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,9 @@ class VideoAIPipeline:
         self.quality_analyzer = OpenCVFaceQualityAnalyzer()
         self.associator = PersonFaceAssociator()
         self.expression_analyzer = FERPlusExpressionAnalyzer()
+        
+        # Instantiate Phase 7 Analytics Engine
+        self.analytics_engine = SessionAnalyticsEngine()
 
     def _get_or_create_model(self, camera_id: str, session_id: str) -> YOLO:
         key = f"{camera_id}_{session_id}"
@@ -37,6 +41,7 @@ class VideoAIPipeline:
         if key in self._live_sessions:
             logger.info(f"Destroying AI tracker state for session {key}")
             del self._live_sessions[key]
+        self.analytics_engine.cleanup_session(camera_id, session_id)
 
     def process_frame(self, camera_id: str, session_id: str, frame_bytes: bytes) -> AIFrameResult:
         np_arr = np.frombuffer(frame_bytes, np.uint8)
@@ -144,10 +149,14 @@ class VideoAIPipeline:
                 quality=quality,
                 expression=expression
             ))
+            
+        # Run Analytics Engine
+        timestamp = datetime.utcnow()
+        self.analytics_engine.process_detections(camera_id, session_id, detections, timestamp)
 
         return AIFrameResult(
             camera_id=camera_id,
-            timestamp=datetime.utcnow(),
+            timestamp=timestamp,
             frame_number=0,
             persons=len(detections),
             detections=detections,
