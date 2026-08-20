@@ -9,6 +9,7 @@ from ai.models import AIFrameResult, Detection, FaceDetection, FaceQuality
 from ai.face.yunet import YuNetFaceDetector
 from ai.face.opencv_quality import OpenCVFaceQualityAnalyzer
 from ai.face.association import PersonFaceAssociator
+from ai.face.ferplus_expression import FERPlusExpressionAnalyzer
 import logging
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,7 @@ class VideoAIPipeline:
         self.face_detector = YuNetFaceDetector()
         self.quality_analyzer = OpenCVFaceQualityAnalyzer()
         self.associator = PersonFaceAssociator()
+        self.expression_analyzer = FERPlusExpressionAnalyzer()
 
     def _get_or_create_model(self, camera_id: str, session_id: str) -> YOLO:
         key = f"{camera_id}_{session_id}"
@@ -39,6 +41,7 @@ class VideoAIPipeline:
     def process_frame(self, camera_id: str, session_id: str, frame_bytes: bytes) -> AIFrameResult:
         np_arr = np.frombuffer(frame_bytes, np.uint8)
         frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+        cv2.imwrite('/tmp/latest_frame.jpg', frame)
         
         if frame is None:
             raise ValueError("Failed to decode frame bytes into an image.")
@@ -65,14 +68,16 @@ class VideoAIPipeline:
         
         for det in detections:
             px1, py1, px2, py2 = det.bounding_box
-            # Pad the person box slightly for face search (e.g. 10%)
-            pad_w = int((px2 - px1) * 0.1)
-            pad_h = int((py2 - py1) * 0.1)
+            # Pad the person box for face search. 
+            # YOLO often cuts off the top of the head for sitting people, so pad 25% on top.
+            # Pad 10% on sides and bottom.
+            height = py2 - py1
+            width = px2 - px1
             
-            cx1 = max(0, px1 - pad_w)
-            cy1 = max(0, py1 - pad_h)
-            cx2 = min(w_frame, px2 + pad_w)
-            cy2 = min(h_frame, py2 + pad_h)
+            cx1 = max(0, px1 - int(width * 0.1))
+            cy1 = max(0, py1 - int(height * 0.25))
+            cx2 = min(w_frame, px2 + int(width * 0.1))
+            cy2 = min(h_frame, py2 + int(height * 0.1))
             
             if cx2 <= cx1 or cy2 <= cy1:
                 continue
@@ -126,9 +131,10 @@ class VideoAIPipeline:
             
             quality = self.quality_analyzer.analyze_quality(face_crop)
             
-            # Quality Gate: Meets threshold?
-            # NO -> preserve detection, skip expression (expression=None natively)
-            # YES -> expression analysis allowed (deferred to Phase 6.4)
+            # Quality Gate
+            expression = None
+            if quality.meets_threshold:
+                expression = self.expression_analyzer.analyze_expression(face_crop)
             
             final_faces.append(FaceDetection(
                 face_id=str(uuid.uuid4()),
@@ -136,7 +142,7 @@ class VideoAIPipeline:
                 bbox=box,
                 confidence=conf,
                 quality=quality,
-                expression=None
+                expression=expression
             ))
 
         return AIFrameResult(

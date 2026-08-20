@@ -5,9 +5,11 @@ export type AIStatus = 'analyzing' | 'live' | 'unavailable';
 export interface PeopleCountProps {
   count: number | null;
   status: AIStatus;
+  facesCount?: number | null;
+  expressions?: Record<string, number> | null;
 }
 
-export const PeopleCount: React.FC<PeopleCountProps> = ({ count, status }) => {
+export const PeopleCount: React.FC<PeopleCountProps> = ({ count, status, facesCount, expressions }) => {
   let displayContent;
 
   switch (status) {
@@ -22,10 +24,29 @@ export const PeopleCount: React.FC<PeopleCountProps> = ({ count, status }) => {
         displayContent = <span style={{ color: '#eab308' }}>Analyzing...</span>;
       } else {
         displayContent = (
-          <span>
-            <span style={{ fontWeight: 'bold' }}>{count}</span>
-            {count === 1 ? ' Person' : ' People'}
-          </span>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span>
+              <span style={{ fontWeight: 'bold' }}>{count}</span>
+              {count === 1 ? ' Person' : ' People'}
+            </span>
+            {facesCount !== undefined && facesCount !== null && (
+              <span style={{ fontSize: '0.8rem', opacity: 0.9, marginTop: '2px' }}>
+                <span style={{ fontWeight: 'bold' }}>{facesCount}</span>
+                {facesCount === 1 ? ' Face detected' : ' Faces detected'}
+              </span>
+            )}
+            {expressions && Object.keys(expressions).length > 0 && (
+              <div style={{ marginTop: '4px', fontSize: '0.8rem', borderTop: '1px solid rgba(255,255,255,0.2)', paddingTop: '4px' }}>
+                <div style={{ opacity: 0.8, marginBottom: '2px' }}>Expressions:</div>
+                {Object.entries(expressions).map(([label, count]) => (
+                  <div key={label} style={{ display: 'flex', justifyContent: 'space-between', marginLeft: '4px' }}>
+                    <span>{label}:</span>
+                    <span style={{ fontWeight: 'bold' }}>{count}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         );
       }
       break;
@@ -46,8 +67,9 @@ export const PeopleCount: React.FC<PeopleCountProps> = ({ count, status }) => {
         border: '1px solid rgba(255,255,255,0.1)'
       }}
     >
-      <span style={{ marginRight: '8px', opacity: 0.8 }}>People in frame:</span>
-      {displayContent}
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        {displayContent}
+      </div>
     </div>
   );
 };

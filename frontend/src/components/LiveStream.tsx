@@ -19,6 +19,9 @@ export const LiveStream: React.FC<LiveStreamProps> = ({ cameraId, onClose }) => 
   // AI State
   const [aiStatus, setAiStatus] = useState<AIStatus>('analyzing');
   const [peopleCount, setPeopleCount] = useState<number | null>(null);
+  const [facesCount, setFacesCount] = useState<number | null>(null);
+  const [expressionSummary, setExpressionSummary] = useState<Record<string, number> | null>(null);
+  
   const aiSessionIdRef = useRef<string>(Math.random().toString(36).substring(2, 15));
   const aiLoopActiveRef = useRef<boolean>(false);
   const aiRequestInFlightRef = useRef<boolean>(false);
@@ -147,6 +150,19 @@ export const LiveStream: React.FC<LiveStreamProps> = ({ cameraId, onClose }) => 
               if (res.ok) {
                 const data = await res.json();
                 setPeopleCount(data.persons);
+                
+                const faces = data.faces || [];
+                setFacesCount(faces.length);
+                
+                const expSummary: Record<string, number> = {};
+                faces.forEach((f: any) => {
+                  if (f.expression && f.expression.label) {
+                    const label = f.expression.label.charAt(0).toUpperCase() + f.expression.label.slice(1);
+                    expSummary[label] = (expSummary[label] || 0) + 1;
+                  }
+                });
+                setExpressionSummary(expSummary);
+                
                 setAiStatus('live');
               } else {
                 console.error("AI inference error:", res.status);
@@ -215,7 +231,12 @@ export const LiveStream: React.FC<LiveStreamProps> = ({ cameraId, onClose }) => 
 
         {status.includes('Live Stream Connected') && (
           <div style={{ position: 'absolute', bottom: '20px', left: '20px', zIndex: 10 }}>
-            <PeopleCount count={peopleCount} status={aiStatus} />
+            <PeopleCount 
+              count={peopleCount} 
+              status={aiStatus} 
+              facesCount={facesCount}
+              expressions={expressionSummary}
+            />
           </div>
         )}
 
