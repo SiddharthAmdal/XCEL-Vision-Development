@@ -1,4 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { PeopleCount } from './PeopleCount';
+import type { AIStatus } from './PeopleCount';
 
 const API_BASE_URL = 'http://localhost:8000/api/v1';
 
@@ -9,9 +11,17 @@ interface LiveStreamProps {
 
 export const LiveStream: React.FC<LiveStreamProps> = ({ cameraId, onClose }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const [status, setStatus] = useState<string>('Initializing WebRTC...');
   const [sessionId, setSessionId] = useState<string | null>(null);
+  
+  // AI State
+  const [aiStatus, setAiStatus] = useState<AIStatus>('analyzing');
+  const [peopleCount, setPeopleCount] = useState<number | null>(null);
+  const aiSessionIdRef = useRef<string>(Math.random().toString(36).substring(2, 15));
+  const aiLoopActiveRef = useRef<boolean>(false);
+  const aiRequestInFlightRef = useRef<boolean>(false);
 
   useEffect(() => {
     let active = true;
@@ -100,14 +110,80 @@ export const LiveStream: React.FC<LiveStreamProps> = ({ cameraId, onClose }) => 
 
     startStream();
 
+    // AI Frame Sampling Loop
+    const runAILoop = async () => {
+      if (!active || !aiLoopActiveRef.current) return;
+      
+      // Backpressure: only one in flight
+      if (!aiRequestInFlightRef.current && videoRef.current && canvasRef.current && videoRef.current.readyState >= 2) {
+        aiRequestInFlightRef.current = true;
+        
+        try {
+          const video = videoRef.current;
+          const canvas = canvasRef.current;
+          const ctx = canvas.getContext('2d');
+          
+          if (ctx) {
+            // Downsample slightly to save bandwidth and backend processing
+            canvas.width = 640;
+            canvas.height = (video.videoHeight / video.videoWidth) * 640 || 480;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.8));
+            
+            if (blob) {
+              const formData = new FormData();
+              formData.append('file', blob, 'frame.jpg');
+              formData.append('session_id', aiSessionIdRef.current);
+              
+              const res = await fetch(`${API_BASE_URL}/cameras/${cameraId}/analyze-frame`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': 'Bearer dev_token'
+                },
+                body: formData
+              });
+              
+              if (res.ok) {
+                const data = await res.json();
+                setPeopleCount(data.persons);
+                setAiStatus('live');
+              } else {
+                console.error("AI inference error:", res.status);
+                setAiStatus('unavailable');
+              }
+            }
+          }
+        } catch (err) {
+          console.error("AI frame submission error:", err);
+          setAiStatus('unavailable');
+        } finally {
+          aiRequestInFlightRef.current = false;
+        }
+      }
+      
+      // Schedule next frame check regardless of success/failure (bounded sampling ~ 2-3 fps)
+      setTimeout(runAILoop, 400); 
+    };
+
+    // Start loop immediately; it will wait for video readyState internally
+    aiLoopActiveRef.current = true;
+    runAILoop();
+
     return () => {
       active = false;
+      aiLoopActiveRef.current = false;
       if (pcRef.current) {
         pcRef.current.close();
       }
       if (sessionId) {
         // Send a beacon or fetch request to stop the stream to the backend
-        fetch(`${API_BASE_URL}/cameras/${cameraId}/live/${encodeURIComponent(sessionId)}`, {
+        // We pass the aiSessionId as the session to cleanup, but wait, the backend uses sessionId to cleanup WHEP and AI together.
+        // Actually we need to make sure the AI session ID is also cleaned up. Let's append it to the URL query or path if we want,
+        // but for MVP we mapped it to `stop_live_stream(camera_id, session_id)`. The WHEP session ID was used there!
+        // Wait, the backend /analyze-frame accepts `session_id`. So AI tracking uses `aiSessionId`.
+        // Let's pass both to the backend to cleanup.
+        fetch(`${API_BASE_URL}/cameras/${cameraId}/live/${encodeURIComponent(sessionId)}?ai_session_id=${encodeURIComponent(aiSessionIdRef.current)}`, {
           method: 'DELETE',
           headers: {
             'Authorization': 'Bearer dev_token'
@@ -134,6 +210,15 @@ export const LiveStream: React.FC<LiveStreamProps> = ({ cameraId, onClose }) => 
           style={{ width: '100%', height: '100%', display: status.includes('Live Stream Connected') ? 'block' : 'none' }}
         ></video>
         
+        {/* Hidden canvas for frame extraction */}
+        <canvas ref={canvasRef} style={{ display: 'none' }} />
+
+        {status.includes('Live Stream Connected') && (
+          <div style={{ position: 'absolute', bottom: '20px', left: '20px', zIndex: 10 }}>
+            <PeopleCount count={peopleCount} status={aiStatus} />
+          </div>
+        )}
+
         {!status.includes('Live Stream Connected') && (
           <div style={{ textAlign: 'center', color: '#94a3b8', position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
             <div className="loader"></div>

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any
 from pydantic import BaseModel
@@ -8,7 +8,13 @@ from api.dependencies import get_dev_account_id
 from camera.service import CameraService
 from camera.models import Camera, CameraEvent
 
+from ai.pipeline import VideoAIPipeline
+from ai.models import AIFrameResult
+
 router = APIRouter(prefix="/api/v1/cameras", tags=["cameras"])
+
+# Global AI pipeline for live frame analysis
+ai_pipeline = VideoAIPipeline()
 
 def get_camera_service(db: Session = Depends(database.get_db), account_id: str = Depends(get_dev_account_id)) -> CameraService:
     return CameraService(db, account_id)
@@ -52,13 +58,45 @@ async def start_live_stream(camera_id: str, request: LiveStreamRequest, service:
     else:
         raise HTTPException(status_code=res.get("code", 500), detail=res.get("message", "Failed to start live stream"))
 
+@router.post("/{camera_id}/analyze-frame", response_model=AIFrameResult)
+async def analyze_frame(
+    camera_id: str,
+    session_id: str = Form(...),
+    file: UploadFile = File(...),
+    service: CameraService = Depends(get_camera_service)
+):
+    # Verify camera exists (isolation)
+    cam = await service.get_camera(camera_id)
+    if not cam:
+        raise HTTPException(status_code=404, detail="Camera not found")
+
+    if file.content_type not in ["image/jpeg", "image/png", "image/webp"]:
+        raise HTTPException(status_code=415, detail="Unsupported media type")
+        
+    frame_bytes = await file.read()
+    if len(frame_bytes) > 2 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Frame size exceeds 2MB limit")
+        
+    try:
+        # Run inference synchronously for MVP (bounded by frontend request pacing)
+        result = ai_pipeline.process_frame(camera_id, session_id, frame_bytes)
+        return result
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.delete("/{camera_id}/live/{session_id:path}")
-async def stop_live_stream(camera_id: str, session_id: str, service: CameraService = Depends(get_camera_service)):
+async def stop_live_stream(camera_id: str, session_id: str, ai_session_id: str = None, service: CameraService = Depends(get_camera_service)):
     # session_id might contain slashes if it's passed as a full URL path (like in Ring).
     # Using {session_id:path} allows capturing it correctly.
     cam = await service.get_camera(camera_id)
     if not cam:
         raise HTTPException(status_code=404, detail="Camera not found")
+        
+    # Clean up AI session tracking state
+    if ai_session_id:
+        ai_pipeline.cleanup_session(camera_id, ai_session_id)
         
     res = await service.stop_live_stream(camera_id, session_id)
     if res.get("status") == "success":
