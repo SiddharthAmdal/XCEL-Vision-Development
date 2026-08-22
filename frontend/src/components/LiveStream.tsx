@@ -53,7 +53,13 @@ export const LiveStream: React.FC<LiveStreamProps> = ({ cameraId, onClose }) => 
         pc.oniceconnectionstatechange = () => {
           console.log('ICE state:', pc.iceConnectionState);
           if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
-            setStatus('Connection lost');
+            setStatus('Reconnecting...');
+            setTimeout(() => {
+              if (active) {
+                if (pcRef.current) pcRef.current.close();
+                startStream();
+              }
+            }, 2000);
           }
         };
 
@@ -206,8 +212,8 @@ export const LiveStream: React.FC<LiveStreamProps> = ({ cameraId, onClose }) => 
         }
       }
       
-      // Schedule next frame check regardless of success/failure (bounded sampling ~ 2-3 fps)
-      setTimeout(runAILoop, 400); 
+      // Schedule next frame check regardless of success/failure (bounded sampling ~ 10 fps)
+      setTimeout(runAILoop, 100); 
     };
 
     // Start loop immediately; it will wait for video readyState internally

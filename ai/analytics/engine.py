@@ -109,6 +109,7 @@ class SessionAnalyticsEngine:
                             dist_prev_to_curr = self._distance(track.previous_centroid, track.current_centroid)
                             # Actually, if we just check if it moved 40 pixels away from the crossing point.
                             # For simplicity, we just clear debounce if they are on one side and far enough.
+                        if track.crossing_debounce_state:
                             pass # We will handle debounce dynamically by checking if it crosses again
                         
                         if intersect(track.previous_centroid, track.current_centroid, line.start_point, line.end_point):
