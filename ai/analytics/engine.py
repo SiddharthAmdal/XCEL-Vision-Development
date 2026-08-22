@@ -4,8 +4,11 @@ from typing import List, Tuple, Dict, Optional
 from ai.models import Detection
 from ai.analytics.models import (
     CountingLine, TrackHistory, SessionAnalyticsState,
-    EntryEvent, ExitEvent, OccupancyResponse, PeopleAnalyticsResponse, PersonAnalytics, DwellAnalyticsResponse
+    EntryEvent, ExitEvent, OccupancyResponse, PeopleAnalyticsResponse, PersonAnalytics, DwellAnalyticsResponse,
+    BehavioralTemporalConfig
 )
+from ai.analytics.behavioral import BehavioralEngine
+from ai.analytics.activity import ActivityAnalyticsEngine
 import logging
 
 logger = logging.getLogger(__name__)
@@ -25,6 +28,8 @@ class SessionAnalyticsEngine:
         self._sessions: Dict[str, SessionAnalyticsState] = {}
         # For debounce distance
         self.debounce_distance = 40.0
+        self.behavioral_engine = BehavioralEngine()
+        self.activity_engine = ActivityAnalyticsEngine()
 
     def _get_session_key(self, camera_id: str, session_id: str) -> str:
         return f"{camera_id}_{session_id}"
@@ -58,7 +63,7 @@ class SessionAnalyticsEngine:
     def _distance(self, p1: Tuple[int, int], p2: Tuple[int, int]) -> float:
         return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
 
-    def process_detections(self, camera_id: str, session_id: str, detections: List[Detection], timestamp: datetime) -> SessionAnalyticsState:
+    def process_detections(self, camera_id: str, session_id: str, detections: List[Detection], faces: List, timestamp: datetime) -> SessionAnalyticsState:
         # Auto-initialize with a default line if not exists (for testing/MVP)
         key = self._get_session_key(camera_id, session_id)
         if key not in self._sessions:
@@ -85,7 +90,8 @@ class SessionAnalyticsEngine:
                     track_id=track_id,
                     first_seen=timestamp,
                     last_seen=timestamp,
-                    current_centroid=centroid
+                    current_centroid=centroid,
+                    recent_centroids=[(timestamp, centroid)]
                 )
             else:
                 track = state.active_tracks[track_id]
@@ -93,6 +99,7 @@ class SessionAnalyticsEngine:
                 track.current_centroid = centroid
                 track.last_seen = timestamp
                 track.total_visible_duration = (timestamp - track.first_seen).total_seconds()
+                track.recent_centroids.append((timestamp, centroid))
                 
                 # 2. Check Line Crossing
                 if track.previous_centroid and track.current_centroid:
@@ -149,6 +156,24 @@ class SessionAnalyticsEngine:
                                 track.exit_timestamp = timestamp
                                 track.crossing_debounce_state = True
                                 logger.info(f"Session {session_id}: Track {track_id} triggered EXIT.")
+
+        # 2.5 Update Behavioral Data and Execute Behavioral Engine
+        face_map = {f.track_id: f for f in faces if f.track_id is not None}
+        for track_id, track in state.active_tracks.items():
+            if track_id in current_track_ids:
+                face = face_map.get(track_id)
+                if face:
+                    track.recent_face_visibility.append((timestamp, True))
+                    if face.expression:
+                        track.recent_expressions.append((timestamp, face.expression.label))
+                else:
+                    track.recent_face_visibility.append((timestamp, False))
+            
+            # Execute pruning, cue extraction, and scoring for active tracks
+            self.behavioral_engine.process_track(track, timestamp)
+
+        # Update heatmap every frame via ActivityEngine
+        self.activity_engine._update_and_get_heatmap(state, timestamp)
 
         # 3. Clean up lost tracks
         # ByteTrack handles temporary loss (track_buffer), so if it's completely gone from detections, 

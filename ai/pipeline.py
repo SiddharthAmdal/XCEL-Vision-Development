@@ -152,7 +152,7 @@ class VideoAIPipeline:
             
         # Run Analytics Engine
         timestamp = datetime.utcnow()
-        self.analytics_engine.process_detections(camera_id, session_id, detections, timestamp)
+        self.analytics_engine.process_detections(camera_id, session_id, detections, final_faces, timestamp)
 
         return AIFrameResult(
             camera_id=camera_id,

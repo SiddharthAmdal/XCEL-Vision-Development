@@ -5,7 +5,11 @@ from typing import List
 import database
 from api.dependencies import get_dev_account_id
 from camera.service import CameraService
-from ai.analytics.models import OccupancyResponse, PeopleAnalyticsResponse, EntryEvent, DwellAnalyticsResponse
+from ai.analytics.models import (
+    OccupancyResponse, PeopleAnalyticsResponse, EntryEvent, 
+    DwellAnalyticsResponse, AdvancedSceneAnalyticsResponse
+)
+from datetime import datetime
 
 # We import the global AI pipeline which holds the analytics engine
 from api.routers.cameras import ai_pipeline
@@ -42,3 +46,16 @@ async def get_entries(camera_id: str, session_id: str, service: CameraService = 
 async def get_dwell(camera_id: str, session_id: str, service: CameraService = Depends(get_camera_service)):
     await verify_camera(camera_id, service)
     return ai_pipeline.analytics_engine.get_dwell(camera_id, session_id)
+
+@router.get("/scene", response_model=AdvancedSceneAnalyticsResponse)
+async def get_scene_analytics(camera_id: str, session_id: str, service: CameraService = Depends(get_camera_service)):
+    await verify_camera(camera_id, service)
+    state = ai_pipeline.analytics_engine.get_state(camera_id, session_id)
+    if not state:
+        return AdvancedSceneAnalyticsResponse(
+            camera_id=camera_id,
+            session_id=session_id,
+            timestamp=datetime.utcnow()
+        )
+        
+    return ai_pipeline.analytics_engine.activity_engine.process_advanced_analytics(state, datetime.utcnow())

@@ -2,7 +2,9 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { PeopleCount } from './PeopleCount';
 import type { AIStatus } from './PeopleCount';
 import { AnalyticsDisplay } from './AnalyticsDisplay';
-import type { AnalyticsData } from './AnalyticsDisplay';
+import type { AnalyticsData, BehavioralData, SceneAnalyticsData } from './AnalyticsDisplay';
+import { PersonOverlay } from './PersonOverlay';
+import type { Detection } from './PersonOverlay';
 
 const API_BASE_URL = 'http://localhost:8000/api/v1';
 
@@ -24,6 +26,10 @@ export const LiveStream: React.FC<LiveStreamProps> = ({ cameraId, onClose }) => 
   const [facesCount, setFacesCount] = useState<number | null>(null);
   const [expressionSummary, setExpressionSummary] = useState<Record<string, number> | null>(null);
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
+  const [behaviorData, setBehaviorData] = useState<BehavioralData | null>(null);
+  const [sceneData, setSceneData] = useState<SceneAnalyticsData | null>(null);
+  const [frameDetections, setFrameDetections] = useState<Detection[]>([]);
+  const [analysisDims, setAnalysisDims] = useState<{width: number, height: number}>({width: 640, height: 480});
   
   const aiSessionIdRef = useRef<string>(Math.random().toString(36).substring(2, 15));
   const aiLoopActiveRef = useRef<boolean>(false);
@@ -137,8 +143,10 @@ export const LiveStream: React.FC<LiveStreamProps> = ({ cameraId, onClose }) => 
           
           if (ctx) {
             // Downsample slightly to save bandwidth and backend processing
-            canvas.width = 640;
-            canvas.height = (video.videoHeight / video.videoWidth) * 640 || 480;
+            const aw = 640;
+            const ah = (video.videoHeight / video.videoWidth) * 640 || 480;
+            canvas.width = aw;
+            canvas.height = ah;
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             
             const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.8));
@@ -159,6 +167,8 @@ export const LiveStream: React.FC<LiveStreamProps> = ({ cameraId, onClose }) => 
               if (res.ok) {
                 const data = await res.json();
                 setPeopleCount(data.persons);
+                setFrameDetections(data.detections || []);
+                setAnalysisDims({width: aw, height: ah});
                 
                 const faces = data.faces || [];
                 setFacesCount(faces.length);
@@ -182,6 +192,12 @@ export const LiveStream: React.FC<LiveStreamProps> = ({ cameraId, onClose }) => 
                   const dwellRes = await fetch(`${API_BASE_URL}/analytics/dwell?camera_id=${cameraId}&session_id=${aiSessionIdRef.current}`, {
                     headers: { 'Authorization': 'Bearer dev_token' }
                   });
+                  const behaviorRes = await fetch(`${API_BASE_URL}/behavior?camera_id=${cameraId}&session_id=${aiSessionIdRef.current}`, {
+                    headers: { 'Authorization': 'Bearer dev_token' }
+                  });
+                  const sceneRes = await fetch(`${API_BASE_URL}/analytics/scene?camera_id=${cameraId}&session_id=${aiSessionIdRef.current}`, {
+                    headers: { 'Authorization': 'Bearer dev_token' }
+                  });
                   
                   if (occRes.ok && dwellRes.ok) {
                     const occData = await occRes.json();
@@ -194,6 +210,16 @@ export const LiveStream: React.FC<LiveStreamProps> = ({ cameraId, onClose }) => 
                       estimated_occupancy: occData.estimated_occupancy,
                       average_dwell_time_seconds: dwellData.average_dwell_time_seconds
                     });
+                  }
+                  
+                  if (behaviorRes.ok) {
+                    const behData = await behaviorRes.json();
+                    setBehaviorData(behData);
+                  }
+                  
+                  if (sceneRes.ok) {
+                    const scData = await sceneRes.json();
+                    setSceneData(scData);
                   }
                 } catch (e) {
                   console.error("Error fetching analytics", e);
@@ -274,19 +300,27 @@ export const LiveStream: React.FC<LiveStreamProps> = ({ cameraId, onClose }) => 
           </div>
         )}
 
-        {status.includes('Live Stream Connected') && (
-          <div style={{ position: 'absolute', top: '20px', right: '20px', zIndex: 10 }}>
-            <AnalyticsDisplay data={analyticsData} />
-          </div>
-        )}
-
         {!status.includes('Live Stream Connected') && (
           <div style={{ textAlign: 'center', color: '#94a3b8', position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
             <div className="loader"></div>
             <p style={{ marginTop: '1rem' }}>{status}</p>
           </div>
         )}
+        
+        {status.includes('Live Stream Connected') && (
+          <PersonOverlay 
+            key={sessionId} // Reset person mapping on new session
+            detections={frameDetections}
+            videoRef={videoRef}
+            analysisWidth={analysisDims.width}
+            analysisHeight={analysisDims.height}
+          />
+        )}
       </div>
+
+      {status.includes('Live Stream Connected') && (
+        <AnalyticsDisplay data={analyticsData} behavior={behaviorData} scene={sceneData} />
+      )}
     </div>
   );
 };
