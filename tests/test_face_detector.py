@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from ai.face.yunet import YuNetFaceDetector
+from xsc_lib.xsc_lib_extn.ai.yunet import YuNetFaceDetector
 
 @pytest.fixture
 def detector():
@@ -33,7 +33,7 @@ def test_bounding_box_normalization(detector):
     img = np.zeros((100, 100, 3), dtype=np.uint8)
     faces = detector.detect_faces(img)
     assert len(faces) == 1
-    bbox, conf = faces[0]
+    bbox, conf, landmarks = faces[0]
     x1, y1, x2, y2 = bbox
     assert x1 == 0
     assert y1 == 0

@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime, timedelta
-from ai.analytics.models import TrackHistory, BehavioralTemporalConfig
-from ai.analytics.behavioral import BehavioralEngine
+from xsc_lib.xsc_lib_common.models.analytics import TrackHistory, BehavioralTemporalConfig
+from xsc_lib.xsc_lib_app.analytics.behavioral import BehavioralEngine
 
 def test_prune_buffers():
     config = BehavioralTemporalConfig(window_seconds=5.0, max_observations=150)

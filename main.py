@@ -1,10 +1,11 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-import database
-from ring import router as ring_router
-from api.routers import cameras as cameras_router
-from api.routers import analytics as analytics_router
-from api.routers import behavior as behavior_router
+from xsc_lib.xsc_lib_common import database
+from xsc_lib.xsc_lib_app.api.routers.ring import router as ring_router
+from xsc_lib.xsc_lib_app.api.routers import cameras as cameras_router
+from xsc_lib.xsc_lib_app.api.routers import analytics as analytics_router
+from xsc_lib.xsc_lib_app.api.routers import behavior as behavior_router
+from xsc_lib.xsc_lib_app.api.routers import recognition as recognition_router
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 
@@ -31,10 +32,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(ring_router.router)
+app.include_router(ring_router)
 app.include_router(cameras_router.router)
 app.include_router(analytics_router.router)
 app.include_router(behavior_router.router)
+app.include_router(recognition_router.router)
 
 @app.get("/")
 def read_root():

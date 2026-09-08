@@ -67,9 +67,10 @@ interface AnalyticsDisplayProps {
   data: AnalyticsData | null;
   behavior?: BehavioralData | null;
   scene?: SceneAnalyticsData | null;
+  faces?: any[];
 }
 
-export const AnalyticsDisplay: React.FC<AnalyticsDisplayProps> = ({ data, behavior, scene }) => {
+export const AnalyticsDisplay: React.FC<AnalyticsDisplayProps> = ({ data, behavior, scene, faces = [] }) => {
   if (!data) return null;
   
   // Filter active tracks and assign a generic "Person X" label mapping based on order
@@ -131,6 +132,35 @@ export const AnalyticsDisplay: React.FC<AnalyticsDisplayProps> = ({ data, behavi
                 <div style={{ marginBottom: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '12px' }}>
                   <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#fff' }}>Person {index + 1}</div>
                   <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Track ID: {track.track_id}</div>
+                  
+                  {(() => {
+                    const face = faces.find(f => f.track_id === track.track_id);
+                    if (face && face.recognition) {
+                      const rec = face.recognition;
+                      if (rec.status === 'MATCHED') {
+                        return (
+                          <div style={{ marginTop: '8px', background: 'rgba(34, 197, 94, 0.1)', padding: '8px', borderRadius: '4px', borderLeft: '2px solid var(--success-color)' }}>
+                            <div style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--success-color)' }}>Identity: {rec.display_name}</div>
+                            <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Match: {Math.round(rec.similarity * 100)}%</div>
+                          </div>
+                        );
+                      } else if (rec.status === 'UNKNOWN') {
+                        return (
+                          <div style={{ marginTop: '8px', background: 'rgba(239, 68, 68, 0.1)', padding: '8px', borderRadius: '4px', borderLeft: '2px solid var(--danger-color)' }}>
+                            <div style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--danger-color)' }}>Identity: UNKNOWN</div>
+                            {rec.similarity && <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Highest Match: {Math.round(rec.similarity * 100)}%</div>}
+                          </div>
+                        );
+                      } else if (rec.status === 'LOW_QUALITY') {
+                        return (
+                          <div style={{ marginTop: '8px', background: 'rgba(245, 158, 11, 0.1)', padding: '8px', borderRadius: '4px', borderLeft: '2px solid var(--warning-color)' }}>
+                            <div style={{ fontSize: '12px', color: 'var(--warning-color)' }}>Identity: LOW QUALITY</div>
+                          </div>
+                        );
+                      }
+                    }
+                    return null;
+                  })()}
                 </div>
                 
                 {track.indicators.map((indicator, idx) => {

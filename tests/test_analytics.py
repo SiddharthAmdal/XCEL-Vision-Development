@@ -1,8 +1,8 @@
 import pytest
 from datetime import datetime, timedelta
-from ai.analytics.engine import SessionAnalyticsEngine
-from ai.analytics.models import CountingLine
-from ai.models import Detection
+from xsc_lib.xsc_lib_app.analytics.engine import SessionAnalyticsEngine
+from xsc_lib.xsc_lib_common.models.analytics import CountingLine
+from xsc_lib.xsc_lib_common.models.ai import Detection
 
 def test_session_isolation():
     engine = SessionAnalyticsEngine()

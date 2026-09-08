@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from ai.face.opencv_quality import OpenCVFaceQualityAnalyzer
+from xsc_lib.xsc_lib_extn.ai.opencv_quality import OpenCVFaceQualityAnalyzer
 
 @pytest.fixture
 def analyzer():

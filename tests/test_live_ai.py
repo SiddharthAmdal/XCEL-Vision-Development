@@ -2,8 +2,8 @@ import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import MagicMock, AsyncMock
 from main import app
-from api.routers.cameras import get_camera_service
-from camera.models import Camera
+from xsc_lib.xsc_lib_app.api.routers.cameras import get_camera_service
+from xsc_lib.xsc_lib_common.models.camera import Camera
 import numpy as np
 import cv2
 

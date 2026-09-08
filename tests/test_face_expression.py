@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
-from ai.face.ferplus_expression import FERPlusExpressionAnalyzer
-from ai.models import FacialExpression
+from xsc_lib.xsc_lib_extn.ai.ferplus_expression import FERPlusExpressionAnalyzer
+from xsc_lib.xsc_lib_common.models.ai import FacialExpression
 
 @pytest.fixture
 def analyzer():

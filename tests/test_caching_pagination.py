@@ -4,9 +4,9 @@ from unittest.mock import patch, MagicMock
 from datetime import datetime, timedelta
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-import database
-from ring.provider import RingCameraProvider
-from ring.client import RingClient, RateLimitException
+from xsc_lib.xsc_lib_common import database
+from xsc_lib.xsc_lib_extn.ring.provider import RingCameraProvider
+from xsc_lib.xsc_lib_extn.ring.client import RingClient, RateLimitException
 
 @pytest.fixture
 def test_db():

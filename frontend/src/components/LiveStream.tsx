@@ -24,6 +24,7 @@ export const LiveStream: React.FC<LiveStreamProps> = ({ cameraId, onClose }) => 
   const [aiStatus, setAiStatus] = useState<AIStatus>('analyzing');
   const [peopleCount, setPeopleCount] = useState<number | null>(null);
   const [facesCount, setFacesCount] = useState<number | null>(null);
+  const [facesData, setFacesData] = useState<any[]>([]);
   const [expressionSummary, setExpressionSummary] = useState<Record<string, number> | null>(null);
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [behaviorData, setBehaviorData] = useState<BehavioralData | null>(null);
@@ -172,6 +173,7 @@ export const LiveStream: React.FC<LiveStreamProps> = ({ cameraId, onClose }) => 
                 
                 const faces = data.faces || [];
                 setFacesCount(faces.length);
+                setFacesData(faces);
                 
                 const expSummary: Record<string, number> = {};
                 faces.forEach((f: any) => {
@@ -319,7 +321,7 @@ export const LiveStream: React.FC<LiveStreamProps> = ({ cameraId, onClose }) => 
       </div>
 
       {status.includes('Live Stream Connected') && (
-        <AnalyticsDisplay data={analyticsData} behavior={behaviorData} scene={sceneData} />
+        <AnalyticsDisplay data={analyticsData} behavior={behaviorData} scene={sceneData} faces={facesData} />
       )}
     </div>
   );

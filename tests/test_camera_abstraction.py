@@ -1,8 +1,8 @@
 import pytest
 from datetime import datetime
-from camera.models import Camera, CameraEvent
-from camera.provider import CameraProvider
-from ring.provider import RingCameraProvider
+from xsc_lib.xsc_lib_common.models.camera import Camera, CameraEvent
+from xsc_lib.xsc_lib_common.interfaces.camera_provider import CameraProvider
+from xsc_lib.xsc_lib_extn.ring.provider import RingCameraProvider
 from unittest.mock import MagicMock
 
 def test_camera_model_normalization():
@@ -81,7 +81,7 @@ async def test_no_ring_structures_leak():
     }
     
     from unittest.mock import patch
-    with patch("ring.client.RingClient.get", return_value=mock_response):
+    with patch("xsc_lib.xsc_lib_extn.ring.client.RingClient.get", return_value=mock_response):
         devices = await provider.get_devices(force_refresh=True)
         assert len(devices) == 1
         cam = devices[0]

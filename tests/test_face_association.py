@@ -1,6 +1,6 @@
 import pytest
-from ai.face.association import PersonFaceAssociator
-from ai.models import Detection
+from xsc_lib.xsc_lib_app.face.association import PersonFaceAssociator
+from xsc_lib.xsc_lib_common.models.ai import Detection
 
 @pytest.fixture
 def associator():

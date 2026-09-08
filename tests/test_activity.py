@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime, timedelta
-from ai.analytics.engine import SessionAnalyticsEngine
-from ai.models import Detection
+from xsc_lib.xsc_lib_app.analytics.engine import SessionAnalyticsEngine
+from xsc_lib.xsc_lib_common.models.ai import Detection
 
 def test_activity_state_moving_and_stationary():
     engine = SessionAnalyticsEngine()

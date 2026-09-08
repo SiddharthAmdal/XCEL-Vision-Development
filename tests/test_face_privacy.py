@@ -1,5 +1,5 @@
 import pytest
-from ai.models import AIFrameResult, FaceDetection, FaceQuality
+from xsc_lib.xsc_lib_common.models.ai import AIFrameResult, FaceDetection, FaceQuality
 
 def test_face_privacy_no_embeddings():
     quality = FaceQuality(
