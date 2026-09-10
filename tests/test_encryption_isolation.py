@@ -1,8 +1,8 @@
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-import database
-from config import settings
+from xsc_lib.xsc_lib_common import database
+from xsc_lib.xsc_lib_common.config import settings
 
 @pytest.fixture
 def test_db():
@@ -52,7 +52,7 @@ def test_account_isolation(test_db):
     Verify that tokens are explicitly isolated by account_id.
     """
     from datetime import datetime, timedelta
-    from ring.client import RingClient
+    from xsc_lib.xsc_lib_extn.ring.client import RingClient
     
     token1 = database.RingToken(
         account_id="userA",

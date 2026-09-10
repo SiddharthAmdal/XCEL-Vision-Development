@@ -5,7 +5,7 @@ from main import app
 import json
 import hmac
 import hashlib
-from config import settings
+from xsc_lib.xsc_lib_common.config import settings
 
 client = TestClient(app)
 

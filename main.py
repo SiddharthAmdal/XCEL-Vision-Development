@@ -1,7 +1,12 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-import database
-from ring import router as ring_router
+from xsc_lib.xsc_lib_common import database
+from xsc_lib.xsc_lib_app.api.routers.ring import router as ring_router
+from xsc_lib.xsc_lib_app.api.routers import cameras as cameras_router
+from xsc_lib.xsc_lib_app.api.routers import analytics as analytics_router
+from xsc_lib.xsc_lib_app.api.routers import behavior as behavior_router
+from xsc_lib.xsc_lib_app.api.routers import recognition as recognition_router
+from fastapi.middleware.cors import CORSMiddleware
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -18,10 +23,20 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="XCEL Vision Backend", lifespan=lifespan)
 
-# Note: Explicit CORS configuration is delayed until required by the web frontend
-# as per requirements. Ring webhook/auth traffic is server-to-server.
+# Configure CORS for the frontend dashboard
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # Allow all for MVP dev, can restrict to http://localhost:5173
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-app.include_router(ring_router.router)
+app.include_router(ring_router)
+app.include_router(cameras_router.router)
+app.include_router(analytics_router.router)
+app.include_router(behavior_router.router)
+app.include_router(recognition_router.router)
 
 @app.get("/")
 def read_root():
